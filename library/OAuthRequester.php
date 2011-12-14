@@ -31,6 +31,7 @@
  */
 
 require_once dirname(__FILE__) . '/OAuthRequestSigner.php';
+// require_once dirname(__FILE__) . '/body/OAuthBodyMultipartFormdata.php';
 require_once dirname(__FILE__) . '/body/OAuthBodyContentDisposition.php';
 
 
@@ -101,14 +102,22 @@ class OAuthRequester extends OAuthRequestSigner
 			$this->setParam('xoauth_token_ttl', intval($options['token_ttl']));
 		}
 
+                $extra_headers = array();
 		if (!empty($this->files))
 		{
-			// At the moment OAuth does not support multipart/form-data, so try to encode
-			// the supplied file (or data) as the request body and add a content-disposition header.
+			// Encode the body as multipart/form-data 
+                        // The oauth-php default implementation of OAuthBodyMultipartFormdata is broken/unsupported.
+                        // our implementation is currently in OAuthBodyContentDisposition, which is messed up. It should be refactored.
+			// list($extra_headers, $body) = OAuthBodyMultipartFormdata::encodeBody($this->param, $this->files);
 			list($extra_headers, $body) = OAuthBodyContentDisposition::encodeBody($this->files);
 			$this->setBody($body);
-			$curl_options = $this->prepareCurlOptions($curl_options, $extra_headers);
 		}
+                if ($this->method == 'PUT') {
+                  // we need to specify Content-Length explicitly for PUT requests
+                  $extra_headers['Content-Length'] = strlen($this->getBody());
+                }
+                $curl_options = $this->prepareCurlOptions($curl_options, $extra_headers);
+
 		$this->sign($usr_id, null, $name);
 		$text   = $this->curl_raw($curl_options);
 		$result = $this->curl_parse($text);	
